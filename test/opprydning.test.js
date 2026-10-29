@@ -6,7 +6,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { lagDiff, foreslaaSletting } from '../src/verktoy/opprydning.js';
+import { lagDiff, verktøy } from '../src/verktoy.js';
+
+const foreslaaSletting = verktøy.find((v) => v.definisjon.name === 'foreslaa_sletting');
 
 const tiLinjer = Array.from({ length: 10 }, (_, i) => `linje ${i + 1}`).join('\n') + '\n';
 
