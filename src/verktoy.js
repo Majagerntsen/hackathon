@@ -62,6 +62,38 @@ function sokIRepo({ monster, regex = false, maks_treff = MAKS_TREFF } = {}) {
   return treff.join('\n') + hale;
 }
 
+function hentGitHistorikk({ fil } = {}) {
+  if (typeof fil !== 'string' || !fil.trim()) {
+    throw new Error('Mangler «fil». Send f.eks. {"fil": "src/utils/legacyCsv.js"}.');
+  }
+  // Loggen bruker stier med / relativt til repo-roten, så rydd opp i det modellen sender.
+  const nøkkel = fil.trim().replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '').replace(/^hjemsokt-repo\//, '');
+
+  let logg;
+  try {
+    logg = JSON.parse(fs.readFileSync(GIT_LOGG, 'utf8'));
+  } catch (e) {
+    throw new Error(`Fant ikke git-loggen i ${path.relative(process.cwd(), GIT_LOGG)}: ${e.message}`);
+  }
+
+  const commits = logg.filer?.[nøkkel];
+  if (!commits) {
+    const navn = path.posix.basename(nøkkel);
+    const lignende = Object.keys(logg.filer ?? {}).filter((f) => path.posix.basename(f) === navn);
+    const hint = lignende.length
+      ? ` Mente du ${lignende.map((f) => `«${f}»`).join(', ')}?`
+      : ' Bruk sok_i_repo for å finne riktig sti.';
+    throw new Error(`Ingen git-historikk for «${nøkkel}».${hint}`);
+  }
+  if (commits.length === 0) return `«${nøkkel}» finnes i loggen, men har ingen commits.`;
+
+  const linjer = [...commits]
+    .sort((a, b) => b.dato.localeCompare(a.dato))
+    .map((c) => `${c.dato} ${c.hash} ${c.forfatter}: ${c.melding}`);
+  const merknad = logg.merknad ? `\n\nMerknad: ${logg.merknad}` : '';
+  return `Historikk for ${nøkkel} (${commits.length} commits, nyeste først):\n` + linjer.join('\n') + merknad;
+}
+
 export const verktøy = [
   {
     definisjon: {
@@ -137,8 +169,6 @@ export const verktøy = [
         required: ['fil'],
       },
     },
-    // TODO: JSON.parse(fs.readFileSync(GIT_LOGG, 'utf8')).filer[fil]. Gi en
-    // forståelig feilmelding (throw new Error) hvis fila ikke finnes i loggen.
-    kjør: null,
+    kjør: async (input) => hentGitHistorikk(input),
   },
 ];
