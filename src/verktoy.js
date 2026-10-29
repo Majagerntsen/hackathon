@@ -3,6 +3,7 @@
 // sendes ikke til modellen før dere har implementert den.
 import fs from 'node:fs';
 import path from 'node:path';
+import { foreslaaSletting } from './verktoy/opprydning.js';
 
 export const REPO = path.resolve(import.meta.dirname, '../hjemsokt-repo');
 export const GIT_LOGG = path.resolve(import.meta.dirname, '../data/git-logg.json');
@@ -141,4 +142,5 @@ export const verktøy = [
     // forståelig feilmelding (throw new Error) hvis fila ikke finnes i loggen.
     kjør: null,
   },
+  foreslaaSletting,
 ];
