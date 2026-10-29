@@ -7,10 +7,10 @@ const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;
 const grønn = (t) => `\x1b[32m${t}\x1b[0m`;
 
 export async function kjørAgent({ system, oppgave, verktøy }) {
-  // Leses her og ikke på toppnivå: imports kjøres før index.js laster .env.
+  // Leses her og ikke på toppnivå: importer kjøres før index.js har lastet .env.
   const MODELL = process.env.MODELL ?? 'claude-sonnet-5-5';
   // Stopper en agent som går i ring før den brenner opp kostnadstaket.
-  const MAX_ITERASJONER = Number(process.env.MAX_ITERASJONER ?? 10);
+  const MAX_ITERASJONER = Number(process.env.MAX_ITERASJONER ?? 20);
   const klient = new Anthropic();
 
   // Bare verktøy med en kjør-funksjon sendes til modellen. Stubbene i

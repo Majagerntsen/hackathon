@@ -8,16 +8,6 @@ import { foreslaaSletting } from './verktoy/opprydning.js';
 export const REPO = path.resolve(import.meta.dirname, '../hjemsokt-repo');
 export const GIT_LOGG = path.resolve(import.meta.dirname, '../data/git-logg.json');
 
-export const system = `Du er graver på kodekirkegården. Du leter etter død kode i repoet hjemsokt-repo:
-funksjoner ingen kaller, pakker ingen importerer, utkommentert kode, gamle TODO-er,
-tester som alltid skippes og feature-flagg som aldri endres.
-Undersøk før du konkluderer: finn noe mistenkelig, sjekk om noe bruker det, og gå videre.
-For hvert funn skriver du en kort nekrolog: hva det var, når det sist ble rørt, og hvorfor
-det trygt kan begraves. Si tydelig fra når du er usikker, og si hva som IKKE bør fjernes.
-Svar på norsk.`;
-
-export const eksempelOppgave = 'Finn død kode i hjemsokt-repo og skriv en nekrolog for det tryggeste funnet.';
-
 const MAKS_TREFF = 50;
 
 function alleFiler(mappe) {
