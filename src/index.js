@@ -2,6 +2,7 @@
 import { kjørAgent } from './agent.js';
 import { system, eksempelOppgave } from './prompt.js';
 import { verktøy } from './verktoy.js';
+import { lesOpp, taUtFlagg } from './opplesning.js';
 
 try {
   process.loadEnvFile();
@@ -14,7 +15,12 @@ if (!process.env.ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const oppgave = process.argv.slice(2).join(' ') || eksempelOppgave;
+const flagg = taUtFlagg(process.argv.slice(2));
+const oppgave = flagg.oppgave || eksempelOppgave;
 console.log(`\n🎃 ${oppgave}\n`);
 
-await kjørAgent({ system, oppgave, verktøy });
+const svar = await kjørAgent({ system, oppgave, verktøy });
+
+// npm start -- --les-opp: graveren leser sluttrapporten høyt med Nora.
+const sluttTekst = svar?.content?.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+if (flagg.lesOpp && sluttTekst) lesOpp(sluttTekst);
