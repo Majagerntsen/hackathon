@@ -21,7 +21,8 @@ Agenten har bare ett verktøy fra start (`sok_i_repo`). Resten er deres jobb.
 src/
   index.js        startpunkt, leser spørsmålet fra kommandolinja
   agent.js        agentløkka: spør modellen, kjør verktøy, gjenta
-  verktoy.js      systemprompt, eksempeloppgave og verktøyene
+  prompt.js       systemprompt og eksempeloppgave
+  verktoy.js      verktøyene
 hjemsokt-repo/    en intern bookingtjeneste med mye gammelt rusk
 data/
   git-logg.json   commit-historikk per fil (dato, forfatter, melding)
@@ -55,5 +56,5 @@ Dataene er vanlige filer: `hjemsokt-repo/` er bare tekst, og `data/git-logg.json
 
 - MVP er to verktøy og én løkke. Få `les_fil` på plass før dere bygger noe mer.
 - Vis verktøykallene i demoen. Det er de som viser at agenten faktisk jobber selv.
-- `MAX_ITERASJONER` i `.env` stopper en agent som går i ring. Standard er 10.
+- `MAX_ITERASJONER` i `.env` stopper en agent som går i ring. Standard er 20.
 - `.env` committes aldri. Den står allerede i `.gitignore`.
