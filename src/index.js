@@ -1,6 +1,7 @@
 // Startpunktet: npm start -- "spørsmålet ditt"
 import { kjørAgent } from './agent.js';
-import { system, eksempelOppgave, verktøy } from './verktoy.js';
+import { system, eksempelOppgave } from './prompt.js';
+import { verktøy } from './verktoy.js';
 
 try {
   process.loadEnvFile();
