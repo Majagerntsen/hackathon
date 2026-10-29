@@ -13,10 +13,13 @@ const KONTEKST = 3;
 // Alle forslag i denne kjøringen: { fil, fra_linje, til_linje, begrunnelse, linjer }.
 const forslag = [];
 
-function lesLinjer(fil) {
-  const innhold = fs.readFileSync(path.join(REPO, fil), 'utf8');
+function splittLinjer(innhold) {
   const harSluttNy = innhold.endsWith('\n');
   return { linjer: (harSluttNy ? innhold.slice(0, -1) : innhold).split('\n'), harSluttNy };
+}
+
+function lesLinjer(fil) {
+  return splittLinjer(fs.readFileSync(path.join(REPO, fil), 'utf8'));
 }
 
 function sjekkSti(fil) {
@@ -29,8 +32,8 @@ function sjekkSti(fil) {
 
 // Unified diff for én fil der bare hele linjer slettes. Områder nær hverandre
 // slås sammen til én hunk, slik git gjør.
-function diffForFil(fil, områder) {
-  const { linjer, harSluttNy } = lesLinjer(fil);
+export function lagDiff(fil, innhold, områder) {
+  const { linjer, harSluttNy } = splittLinjer(innhold);
   const slett = new Set(områder.flatMap((o) => Array.from({ length: o.til_linje - o.fra_linje + 1 }, (_, i) => o.fra_linje + i)));
 
   const grupper = [];
@@ -63,7 +66,9 @@ function diffForFil(fil, områder) {
 
 function lagPatch() {
   const filer = [...new Set(forslag.map((f) => f.fil))].sort();
-  return filer.map((fil) => diffForFil(fil, forslag.filter((f) => f.fil === fil))).join('');
+  return filer
+    .map((fil) => lagDiff(fil, fs.readFileSync(path.join(REPO, fil), 'utf8'), forslag.filter((f) => f.fil === fil)))
+    .join('');
 }
 
 function lagPrTekst() {
