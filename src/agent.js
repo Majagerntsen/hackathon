@@ -32,13 +32,14 @@ export async function kjørAgent({ system, oppgave, verktøy }) {
 
     messages.push({ role: 'assistant', content: svar.content });
 
+    // Sluttsvaret skrives ikke her: index.js lagrer det som rapport.md.
+    if (svar.stop_reason === 'end_turn') return svar;
+
     for (const blokk of svar.content) {
       if (blokk.type === 'text' && blokk.text.trim()) {
         console.log(svar.stop_reason === 'tool_use' ? grå(blokk.text) : blokk.text);
       }
     }
-
-    if (svar.stop_reason === 'end_turn') return svar;
     if (svar.stop_reason === 'refusal') {
       console.log(oransje(`\n✖ Modellen avslo (${svar.stop_details?.category ?? 'ukjent grunn'}).`));
       return svar;
