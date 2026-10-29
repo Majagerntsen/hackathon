@@ -53,6 +53,121 @@ function sokIRepo({ monster, regex = false, maks_treff = MAKS_TREFF } = {}) {
   return treff.join('\n') + hale;
 }
 
+const MAKS_PER_KATEGORI = 30;
+const IDENT = '[\\p{L}\\p{N}_$]';
+const DYNAMISK_LASTING = /\b(?:import|require)\s*\(\s*(?:`[^`]*\$\{|[^'"`\s)])/;
+
+function finnReferanser({ navn } = {}) {
+  if (typeof navn !== 'string' || !navn.trim()) {
+    throw new Error('Mangler «navn». Send f.eks. {"navn": "beregnRabatt"} eller {"navn": "moment"}.');
+  }
+  // En filsti som "src/utils/legacyCsv.js" søkes som modulnavnet «legacyCsv».
+  const søk = path.posix.basename(navn.trim().replace(/\\/g, '/')).replace(/\.[cm]?js$/, '');
+  const n = søk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const ord = new RegExp(`(?<!${IDENT})${n}(?!${IDENT})`, 'u');
+  const definisjon = new RegExp(
+    `\\b(?:function\\*?|class|const|let|var)\\s+${n}(?!${IDENT})|^\\s*(?:async\\s+)?${n}\\s*(?::|\\([^)]*\\)\\s*\\{)`,
+    'u',
+  );
+  const eksport = new RegExp(`\\bexports\\.${n}(?!${IDENT})|module\\.exports\\s*=`, 'u');
+  const kortEksport = new RegExp(`^${n}\\s*,?$`, 'u');
+  // Navnet står bare inne i strenger når det forsvinner sammen med streng-literalene.
+  const bareIStreng = (t) => !ord.test(t.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '""'));
+  const pakkenøkkel = new RegExp(`^"${n}"\\s*:`, 'u');
+  const importLinje = /\brequire\s*\(|^import\b|\bfrom\s+['"]/;
+
+  const k = { bruk: [], import: [], test: [], indirekte: [], dok: [], kommentar: [], definisjon: [] };
+  const definisjonsmapper = new Set();
+  const dynamisk = [];
+
+  for (const fil of alleFiler(REPO)) {
+    const rel = path.relative(REPO, fil).replace(/\\/g, '/');
+    const mappe = path.posix.dirname(rel);
+    if (path.posix.basename(rel).replace(/\.[cm]?js$/, '') === søk) {
+      k.definisjon.push(`${rel} (selve fila)`);
+      definisjonsmapper.add(mappe);
+    }
+    const erTest = /(^|\/)test\/|\.test\.js$/.test(rel);
+    let iKommentar = false;
+    let iEksport = false;
+
+    fs.readFileSync(fil, 'utf8').split('\n').forEach((linje, i) => {
+      const t = linje.trim();
+      const varKommentar = iKommentar || /^(\/\/|\/\*|\*)/.test(t);
+      if (!iKommentar && t.startsWith('/*') && !t.includes('*/')) iKommentar = true;
+      else if (iKommentar && t.includes('*/')) iKommentar = false;
+      const varEksport = iEksport;
+      if (/module\.exports\s*=\s*\{/.test(t) && !t.includes('}')) iEksport = true;
+      else if (iEksport && t.startsWith('}')) iEksport = false;
+
+      if (!varKommentar && DYNAMISK_LASTING.test(t)) dynamisk.push({ mappe, linje: `${rel}:${i + 1}: ${t}` });
+      if (!ord.test(linje)) return;
+
+      const treff = `${rel}:${i + 1}: ${t}`;
+      if (rel.endsWith('.md')) k.dok.push(treff);
+      else if (rel.endsWith('.json')) {
+        if (pakkenøkkel.test(t)) k.definisjon.push(treff);
+        else if (bareIStreng(t)) k.indirekte.push(treff);
+        else k.bruk.push(treff);
+      } else if (varKommentar) k.kommentar.push(treff);
+      else if (importLinje.test(t)) (erTest ? k.test : k.import).push(treff);
+      else if (definisjon.test(t)) {
+        k.definisjon.push(treff);
+        definisjonsmapper.add(mappe);
+      } else if (eksport.test(t) || (varEksport && kortEksport.test(t))) k.definisjon.push(treff);
+      else if (erTest) k.test.push(treff);
+      else if (bareIStreng(t)) k.indirekte.push(treff);
+      else k.bruk.push(treff);
+    });
+  }
+
+  if (Object.values(k).every((liste) => liste.length === 0)) {
+    return `Fant ikke «${søk}» noe sted i hjemsokt-repo. Sjekk stavemåten (søket skiller mellom store og små bokstaver), eller bruk sok_i_repo.`;
+  }
+
+  const seksjoner = [
+    ['Bruk i kode', k.bruk],
+    ['Import/require', k.import],
+    ['Bruk i tester', k.test],
+    ['Nevnt i strenger (config, npm-scripts, dynamisk lasting)', k.indirekte],
+    ['Nevnt i dokumentasjon', k.dok],
+    ['I kommentarer eller utkommentert kode (teller ikke som bruk)', k.kommentar],
+    ['Definert eller eksportert (teller ikke som bruk)', k.definisjon],
+  ]
+    .filter(([, liste]) => liste.length)
+    .map(([tittel, liste]) => {
+      const vist = liste.slice(0, MAKS_PER_KATEGORI).map((l) => `  ${l}`).join('\n');
+      const hale = liste.length > MAKS_PER_KATEGORI ? `\n  … ${liste.length - MAKS_PER_KATEGORI} til` : '';
+      return `${tittel} (${liste.length}):\n${vist}${hale}`;
+    });
+
+  const direkte = k.bruk.length + k.import.length;
+  let konklusjon;
+  if (direkte > 0) {
+    konklusjon = `«${søk}» er i bruk (${direkte} direkte treff). Ikke dødt.`;
+  } else if (k.indirekte.length) {
+    konklusjon =
+      `Ingen direkte bruk, men «${søk}» står i strenger. Det kan lastes indirekte, f.eks. som "fil.funksjon" ` +
+      'i config, som plugin-navn eller fra et npm-script. Les de linjene før du konkluderer.';
+  } else if (k.dok.length) {
+    konklusjon = `Ingen bruk i koden, men «${søk}» er nevnt i dokumentasjonen. Det kan brukes fra et annet repo. Ikke fjern uten å sjekke.`;
+  } else if (k.test.length) {
+    konklusjon = `«${søk}» brukes bare i tester. Trolig død produksjonskode, men testene må i så fall fjernes sammen med den.`;
+  } else {
+    konklusjon =
+      `Fant ingen bruk av «${søk}» i hjemsokt-repo. Det betyr ikke sikkert at det er dødt: kode kan lastes ` +
+      'dynamisk, npm-pakker kan brukes fra npm-scripts eller eslint-«extends», og andre repoer kan bruke det.';
+  }
+  const lasterHer = dynamisk.filter((d) => definisjonsmapper.has(d.mappe));
+  if (direkte === 0 && lasterHer.length) {
+    konklusjon +=
+      '\nOBS: mappen der det er definert laster filer dynamisk, så navnet kan brukes uten å stå i koden:\n' +
+      lasterHer.map((d) => `  ${d.linje}`).join('\n');
+  }
+
+  return `Referanser til «${søk}»:\n\n${seksjoner.join('\n\n')}\n\nKonklusjon: ${konklusjon}`;
+}
+
 function hentGitHistorikk({ fil } = {}) {
   if (typeof fil !== 'string' || !fil.trim()) {
     throw new Error('Mangler «fil». Send f.eks. {"fil": "src/utils/legacyCsv.js"}.');
@@ -142,9 +257,7 @@ export const verktøy = [
         required: ['navn'],
       },
     },
-    // TODO: gjenbruk sokIRepo med en regex som \bnavn\b, og filtrer bort linjer
-    // som definerer navnet (function navn, const navn =, "navn": i package.json).
-    kjør: null,
+    kjør: async (input) => finnReferanser(input),
   },
   {
     definisjon: {
