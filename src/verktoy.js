@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { foreslaaSletting } from './verktoy/opprydning.js';
+import { kryssforhor } from './verktoy/advokat.js';
 
 export const REPO = path.resolve(import.meta.dirname, '../hjemsokt-repo');
 export const GIT_LOGG = path.resolve(import.meta.dirname, '../data/git-logg.json');
@@ -133,4 +134,5 @@ export const verktøy = [
     kjør: null,
   },
   foreslaaSletting,
+  kryssforhor,
 ];

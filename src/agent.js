@@ -6,12 +6,14 @@ const grå = (t) => `\x1b[90m${t}\x1b[0m`;
 const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;
 const grønn = (t) => `\x1b[32m${t}\x1b[0m`;
 
-export async function kjørAgent({ system, oppgave, verktøy }) {
+// prefiks rykker inn all logging, så en underagent (f.eks. advokaten) synes som
+// sin egen stemme i terminalen. klient kan byttes ut i tester.
+export async function kjørAgent({ system, oppgave, verktøy, prefiks = '', maksIterasjoner, klient = new Anthropic() }) {
   // Leses her og ikke på toppnivå: importer kjøres før index.js har lastet .env.
   const MODELL = process.env.MODELL ?? 'claude-sonnet-5-5';
   // Stopper en agent som går i ring før den brenner opp kostnadstaket.
-  const MAX_ITERASJONER = Number(process.env.MAX_ITERASJONER ?? 20);
-  const klient = new Anthropic();
+  const MAX_ITERASJONER = maksIterasjoner ?? Number(process.env.MAX_ITERASJONER ?? 20);
+  const logg = (t) => console.log(prefiks ? t.replace(/^/gm, prefiks) : t);
 
   // Bare verktøy med en kjør-funksjon sendes til modellen. Stubbene i
   // verktoy.js blir med av seg selv når dere implementerer dem.
@@ -34,17 +36,17 @@ export async function kjørAgent({ system, oppgave, verktøy }) {
 
     for (const blokk of svar.content) {
       if (blokk.type === 'text' && blokk.text.trim()) {
-        console.log(svar.stop_reason === 'tool_use' ? grå(blokk.text) : blokk.text);
+        logg(svar.stop_reason === 'tool_use' ? grå(blokk.text) : blokk.text);
       }
     }
 
     if (svar.stop_reason === 'end_turn') return svar;
     if (svar.stop_reason === 'refusal') {
-      console.log(oransje(`\n✖ Modellen avslo (${svar.stop_details?.category ?? 'ukjent grunn'}).`));
+      logg(oransje(`\n✖ Modellen avslo (${svar.stop_details?.category ?? 'ukjent grunn'}).`));
       return svar;
     }
     if (svar.stop_reason === 'max_tokens') {
-      console.log(oransje('\n✖ Svaret ble kuttet (max_tokens).'));
+      logg(oransje('\n✖ Svaret ble kuttet (max_tokens).'));
       return svar;
     }
 
@@ -53,31 +55,31 @@ export async function kjørAgent({ system, oppgave, verktøy }) {
     const kall = svar.content.filter((b) => b.type === 'tool_use');
     const resultater = [];
     for (const k of kall) {
-      console.log(oransje(`→ ${k.name}`) + grå(` ${JSON.stringify(k.input)}`));
-      resultater.push(await kjørVerktøy(etterNavn, k));
+      logg(oransje(`→ ${k.name}`) + grå(` ${JSON.stringify(k.input)}`));
+      resultater.push(await kjørVerktøy(etterNavn, k, logg));
     }
     messages.push({ role: 'user', content: resultater });
   }
 
-  console.log(oransje(`\n✖ Stoppet etter ${MAX_ITERASJONER} runder (MAX_ITERASJONER).`));
+  logg(oransje(`\n✖ Stoppet etter ${MAX_ITERASJONER} runder (MAX_ITERASJONER).`));
 }
 
-async function kjørVerktøy(etterNavn, kall) {
+async function kjørVerktøy(etterNavn, kall, logg) {
   const v = etterNavn.get(kall.name);
   if (!v) {
-    return feil(kall, `Ukjent verktøy «${kall.name}». Gyldige: ${[...etterNavn.keys()].join(', ')}`);
+    return feil(kall, logg, `Ukjent verktøy «${kall.name}». Gyldige: ${[...etterNavn.keys()].join(', ')}`);
   }
   try {
     const resultat = await v.kjør(kall.input);
     const tekst = typeof resultat === 'string' ? resultat : JSON.stringify(resultat, null, 2);
-    console.log(grønn(`  ✓ ${tekst.length} tegn tilbake`));
+    logg(grønn(`  ✓ ${tekst.length} tegn tilbake`));
     return { type: 'tool_result', tool_use_id: kall.id, content: tekst };
   } catch (e) {
-    return feil(kall, e.message);
+    return feil(kall, logg, e.message);
   }
 }
 
-function feil(kall, melding) {
-  console.log(oransje(`  ✖ ${melding}`));
+function feil(kall, logg, melding) {
+  logg(oransje(`  ✖ ${melding}`));
   return { type: 'tool_result', tool_use_id: kall.id, content: melding, is_error: true };
 }
