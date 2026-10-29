@@ -2,18 +2,17 @@
 // den ber om, send resultatene tilbake, gjenta til den er ferdig.
 import Anthropic from '@anthropic-ai/sdk';
 
-const MODELL = process.env.MODELL ?? 'claude-sonnet-5-5';
-
-// Stopper en agent som går i ring før den brenner opp kostnadstaket.
-const MAX_ITERASJONER = Number(process.env.MAX_ITERASJONER ?? 10);
-
-const klient = new Anthropic();
-
 const grå = (t) => `\x1b[90m${t}\x1b[0m`;
 const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;
 const grønn = (t) => `\x1b[32m${t}\x1b[0m`;
 
 export async function kjørAgent({ system, oppgave, verktøy }) {
+  // Leses her og ikke på toppnivå: imports kjøres før index.js laster .env.
+  const MODELL = process.env.MODELL ?? 'claude-sonnet-5-5';
+  // Stopper en agent som går i ring før den brenner opp kostnadstaket.
+  const MAX_ITERASJONER = Number(process.env.MAX_ITERASJONER ?? 10);
+  const klient = new Anthropic();
+
   // Bare verktøy med en kjør-funksjon sendes til modellen. Stubbene i
   // verktoy.js blir med av seg selv når dere implementerer dem.
   const aktive = verktøy.filter((v) => v.kjør);
