@@ -99,9 +99,15 @@ export const verktøy = [
         required: ['fil'],
       },
     },
-    // TODO: path.join(REPO, fil), sjekk at resultatet fortsatt ligger under REPO
-    // (ingen ../-triks), les med fs.readFileSync og prefiks hver linje med nummer.
-    kjør: null,
+    kjør: async ({ fil }) => {
+      const full = path.resolve(REPO, fil);
+      if (!full.startsWith(REPO + path.sep)) throw new Error('Fila må ligge i hjemsokt-repo');
+      if (!fs.existsSync(full)) throw new Error(`Fant ikke «${fil}». Bruk sok_i_repo for å finne riktig sti.`);
+      return fs.readFileSync(full, 'utf8')
+        .split('\n')
+        .map((linje, i) => `${i + 1}: ${linje}`)
+        .join('\n');
+    },
   },
   {
     definisjon: {
